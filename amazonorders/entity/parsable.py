@@ -178,7 +178,7 @@ class Parsable:
             url = f"{self.config.constants.BASE_URL}{url}"
         return url
 
-    def to_currency(self,
+    def to_currencyUS(self,
                     value: Union[str, int, float]) -> Union[int, float, None]:
         """
         Clean up a currency, stripping non-numeric values and returning it as a primitive.
@@ -200,3 +200,45 @@ class Parsable:
             return None
 
         return currency
+
+    import re
+    from typing import Union
+
+    def to_currency(self, value: Union[str, int, float]) -> Union[int, float, None]:
+        """
+        Clean up a currency, stripping non-numeric values and returning it as a primitive.
+        Handles both US format ($1,234.56) and German/European format (€1.234,56).
+        Also handles formats like "Bundle : €15,70".
+        :param value: The currency to parse.
+        :return: The currency as a primitive.
+        """
+        if isinstance(value, (int, float)):
+            return value
+        if not value:
+            return None
+            
+        value = value.strip()
+        
+        # First, handle special formats like "Bundle : €15,70"
+        # Extract the part that contains the actual price
+        if ":" in value:
+            parts = value.split(":", 1)
+            if len(parts) > 1:
+                value = parts[1].strip()
+        
+        # Check if it's likely a German/European format (has comma as decimal separator)
+        german_format = isinstance(value, str) and "," in value and (value.rfind(",") > value.rfind(".") or "." not in value)
+        
+        if german_format:
+            # For German format, remove currency symbols first
+            value = re.sub(r'[a-zA-Z$£€\s]+', "", value)  # Remove currency symbols and spaces
+            value = value.replace(".", "")  # Remove thousand separators
+            value = value.replace(",", ".")  # Convert decimal comma to dot
+        else:
+            # For US format, just remove currency symbols and commas
+            value = re.sub(r'[a-zA-Z$£€,\s]+', "", value)  # Also remove spaces
+        
+        try:
+            return float(value) if "." in value else int(value)
+        except (ValueError, TypeError):
+            return None

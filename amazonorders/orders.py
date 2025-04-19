@@ -42,6 +42,7 @@ class AmazonOrders:
     def get_order_history(self,
                           year: int = datetime.date.today().year,
                           start_index: Optional[int] = None,
+                          max_orders: Optional[int] = None,
                           full_details: bool = False,
                           keep_paging: bool = True) -> List[Order]:
         """
@@ -52,6 +53,7 @@ class AmazonOrders:
             Order's :attr:`~amazonorders.entity.order.Order.index`.
         :param full_details: Get the full details for each order in the history. This will execute an additional
             request per Order.
+        :param max_orders: Maximum number of orders to retrieve.
         :param keep_paging: ``False`` if only one page should be fetched.
         :return: A list of the requested Orders.
         """
@@ -77,7 +79,11 @@ class AmazonOrders:
             self.amazon_session.get(next_page)
             response_parsed = self.amazon_session.last_response_parsed
 
-            for order_tag in util.select(response_parsed, self.config.selectors.ORDER_HISTORY_ENTITY_SELECTOR):
+            order_tags = util.select(response_parsed, self.config.selectors.ORDER_HISTORY_ENTITY_SELECTOR)
+
+            for order_tag in order_tags:
+                if max_orders is not None and len(orders) >= max_orders:
+                    break
                 order: Order = self.config.order_cls(order_tag, self.config, index=current_index)
 
                 if full_details:
@@ -93,10 +99,15 @@ class AmazonOrders:
                                                             self.config.selectors.ORDER_DETAILS_ENTITY_SELECTOR)
                         order = self.config.order_cls(order_details_tag, self.config, full_details=True, clone=order,
                                                       index=current_index)
-
+                        order.update_german_fields_from_complete_html(self.amazon_session.last_response_parsed)
                 orders.append(order)
 
                 current_index += 1
+            
+            print(f"Processed order {len(orders)}")
+            # Stop if we've hit the limit mid-page
+            if max_orders is not None and len(orders) >= max_orders:
+                break
 
             next_page = None
             if keep_paging:
@@ -131,4 +142,6 @@ class AmazonOrders:
                                             self.config.selectors.ORDER_DETAILS_ENTITY_SELECTOR)
         order: Order = self.config.order_cls(order_details_tag, self.config, full_details=True)
 
+        # Now pass the complete HTML to the update method
+        order.update_german_fields_from_complete_html(self.amazon_session.last_response_parsed)
         return order

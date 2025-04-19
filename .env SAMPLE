@@ -1,0 +1,8 @@
+#1
+AMAZON_USERNAME_USER1="add email here"
+AMAZON_PASSWORD_USER1="add pw here"
+#2
+AMAZON_USERNAME_USER2="add email here"
+AMAZON_PASSWORD_USER2="add pw here"
+#URL
+AMAZON_BASE_URL="https://www.amazon.de"

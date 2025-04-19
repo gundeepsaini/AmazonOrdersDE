@@ -1,3 +1,27 @@
+---
+## Forked from the awesome work by https://github.com/alexdlaird/amazon-orders
+
+Changes added to process Amazon.de orders (with language set to EN)
+- This is a quick and dirty implementation with direct usage instead as a package
+- Do not use this without verifying all changes!
+
+Steps:
+1. git clone the repo
+2. install the modified package in development mode
+```bash
+#cd path/to/your/forked/amazonorders
+python -m venv venv # needs python v3.12.x (3.13 does not work!)
+source venv/bin/activate
+pip install -e .
+```
+3. copy and edit .env file (from sample) 
+4. run my_order.py
+```bash
+python my_orders.py
+```
+
+---
+
 <p align="center"><img alt="amazon-orders - A Python libray (and CLI) for Amazon order history" src="https://amazon-orders.readthedocs.io/_images/logo.png" /></p>
 
 [![Version](https://img.shields.io/pypi/v/amazon-orders)](https://pypi.org/project/amazon-orders)

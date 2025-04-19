@@ -36,9 +36,20 @@ class Item(Parsable):
         self.link: str = self.safe_simple_parse(selector=self.config.selectors.FIELD_ITEM_LINK_SELECTOR,
                                                 attr_name="href", required=True)
         #: The Item price.
-        self.price: Optional[float] = self.to_currency(
-            self.safe_simple_parse(selector=self.config.selectors.FIELD_ITEM_PRICE_SELECTOR)
-        )
+        price_text = self.safe_simple_parse(
+            selector="span.a-size-small.a-color-price", 
+            required=False)
+        
+        # Clean up the price text (remove nobr tags if present)
+        if price_text:
+            price_text = price_text.replace("<nobr>", "").replace("</nobr>", "")
+        else:
+            # If not found, try the fallback selector
+            price_text = self.safe_simple_parse(
+                selector='div[data-component="unitPrice"] span.a-offscreen',
+                required=False)
+        self.price: Optional[float] = self.to_currency(price_text)
+
         #: The Item Seller.
         self.seller: Optional[Seller] = self.safe_simple_parse(
             selector=self.config.selectors.FIELD_ITEM_SELLER_SELECTOR,

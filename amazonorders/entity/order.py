@@ -46,7 +46,7 @@ class Order(Parsable):
         self.index: Optional[int] = index
 
         #: The Order Shipments.
-        self.shipments: List[Shipment] = clone.shipments if clone else self._parse_shipments()
+        #self.shipments: List[Shipment] = clone.shipments if clone else self._parse_shipments()
         #: The Order Items.
         self.items: List[Item] = clone.items if clone and not full_details else self._parse_items()
         #: The Order number.
@@ -67,7 +67,7 @@ class Order(Parsable):
             suffix_split_fuzzy=True,
             parse_date=True)
         #: The Order Recipients.
-        self.recipient: Recipient = clone.recipient if clone else self.safe_parse(self._parse_recipient)
+        #self.recipient: Recipient = clone.recipient if clone else self.safe_parse(self._parse_recipient)
 
         # Fields below this point are only populated if `full_details` is True
 
@@ -82,23 +82,25 @@ class Order(Parsable):
         #: The Order subtotal. Only populated when ``full_details`` is ``True``.
         self.subtotal: Optional[float] = self._if_full_details(self._parse_currency("subtotal"))
         #: The Order shipping total. Only populated when ``full_details`` is ``True``.
-        self.shipping_total: Optional[float] = self._if_full_details(self._parse_currency("shipping"))
+        #self.shipping_total: Optional[float] = self._if_full_details(self._parse_currency("shipping"))
         #: The Order free shipping. Only populated when ``full_details`` is ``True``.
-        self.free_shipping: Optional[float] = self._if_full_details(self._parse_currency("free shipping"))
+        #self.free_shipping: Optional[float] = self._if_full_details(self._parse_currency("free shipping"))
         #: The Order promotion applied. Only populated when ``full_details`` is ``True``.
         self.promotion_applied: Optional[float] = self._if_full_details(
             self._parse_currency("promotion", combine_multiple=True))
         #: The Order coupon savings. Only populated when ``full_details`` is ``True``.
-        self.coupon_savings: Optional[float] = self._if_full_details(
-            self._parse_currency("coupon", combine_multiple=True))
+        #self.coupon_savings: Optional[float] = self._if_full_details(
+        #    self._parse_currency("coupon", combine_multiple=True))
         #: The Order Subscribe & Save discount. Only populated when ``full_details`` is ``True``.
-        self.subscription_discount: Optional[float] = self._if_full_details(self._parse_currency("subscribe"))
+        #self.subscription_discount: Optional[float] = self._if_full_details(self._parse_currency("subscribe"))
         #: The Order total before tax. Only populated when ``full_details`` is ``True``.
-        self.total_before_tax: Optional[float] = self._if_full_details(self._parse_currency("before tax"))
+        #self.total_before_tax: Optional[float] = self._if_full_details(self._parse_currency("before tax"))
         #: The Order estimated tax. Only populated when ``full_details`` is ``True``.
-        self.estimated_tax: Optional[float] = self._if_full_details(self._parse_currency("estimated tax"))
+        #self.estimated_tax: Optional[float] = self._if_full_details(self._parse_currency("estimated tax"))
         #: The Order refund total. Only populated when ``full_details`` is ``True``.
         self.refund_total: Optional[float] = self._if_full_details(self._parse_currency("refund total"))
+        #: The Order gift card amount. Only populated when ``full_details`` is ``True``.
+        self.gift_card_amount: Optional[float] = self._if_full_details(self._parse_currency("gift card"))
 
     def __repr__(self) -> str:
         return f"<Order #{self.order_number}: \"{self.items}\">"
@@ -218,3 +220,110 @@ class Order(Parsable):
     def _if_full_details(self,
                          value: Any) -> Union[Any, None]:
         return value if self.full_details else None
+
+    def update_german_fields_from_complete_html(self, complete_html_parsed):
+        """
+        Update German-specific fields from the complete HTML document.
+        
+        :param complete_html_parsed: The complete HTML parsed by BeautifulSoup
+        """
+        if not self.full_details:
+            return
+        
+        # Find the order summary section in the complete HTML
+        order_summary = util.select_one(complete_html_parsed, "#od-subtotals")
+        if not order_summary:
+            print("Could not find order summary section in complete HTML")
+            return
+        
+        # Find VAT row - need exact match to avoid matching "Total Before VAT"
+        vat_rows = []
+        for row in util.select(order_summary, "div.a-row"):
+            label_col = util.select_one(row, ".a-column.a-span7 span.a-color-base")
+            if label_col and label_col.text.strip() == "VAT:":
+                vat_rows.append(row)
+        
+        # Process VAT if found
+        if vat_rows:
+            value_col = util.select_one(vat_rows[0], ".a-column.a-span5 span.a-color-base")
+            if value_col:
+                self.vat = self.to_currency(value_col.text.strip())
+                print(f"Set VAT to: {self.vat}")
+        
+        # Find Total row - same exact match approach
+        total_rows = []
+        for row in util.select(order_summary, "div.a-row"):
+            label_col = util.select_one(row, ".a-column.a-span7 span.a-color-base")
+            if label_col and label_col.text.strip() == "Total:":
+                total_rows.append(row)
+        
+        # Process Total if found
+        if total_rows:
+            value_col = util.select_one(total_rows[0], ".a-column.a-span5 span.a-color-base")
+            if value_col:
+                self.total = self.to_currency(value_col.text.strip())
+                print(f"Set Total to: {self.total}")
+        
+        # Same approach for other fields
+        # Total Before VAT
+        before_vat_rows = []
+        for row in util.select(order_summary, "div.a-row"):
+            label_col = util.select_one(row, ".a-column.a-span7 span.a-color-base")
+            if label_col and label_col.text.strip() == "Total Before VAT:":
+                before_vat_rows.append(row)
+        
+        if before_vat_rows:
+            value_col = util.select_one(before_vat_rows[0], ".a-column.a-span5 span.a-color-base")
+            if value_col:
+                self.total_before_vat = self.to_currency(value_col.text.strip())
+                print(f"Set Total Before VAT to: {self.total_before_vat}")
+        
+        # Postage & Packing
+        postage_rows = []
+        for row in util.select(order_summary, "div.a-row"):
+            label_col = util.select_one(row, ".a-column.a-span7 span.a-color-base")
+            if label_col and label_col.text.strip() == "Postage & Packing:":
+                postage_rows.append(row)
+        
+        if postage_rows:
+            value_col = util.select_one(postage_rows[0], ".a-column.a-span5 span.a-color-base")
+            if value_col:
+                self.postage_and_packing = self.to_currency(value_col.text.strip())
+                print(f"Set Postage & Packing to: {self.postage_and_packing}")
+        
+        # Gift Card Amount
+        gift_card_rows = []
+        for row in util.select(order_summary, "div.a-row"):
+            label_col = util.select_one(row, ".a-column.a-span7 span.a-color-base")
+            if label_col and label_col.text.strip() == "Gift Card Amount:":
+                gift_card_rows.append(row)
+        
+        if gift_card_rows:
+            value_col = util.select_one(gift_card_rows[0], ".a-column.a-span5 span.a-color-base")
+            if value_col:
+                self.gift_card_amount2 = self.to_currency(value_col.text.strip())
+                print(f"Set Gift Card Amount to: {self.gift_card_amount2}")
+
+
+    def update_item_prices_from_html(self, complete_html_parsed):
+        """
+        Updates item prices from the complete HTML document.
+        
+        :param complete_html_parsed: The complete HTML parsed by BeautifulSoup
+        """
+        if not complete_html_parsed:
+            return
+        
+        # Find all item containers in the complete HTML
+        item_containers = util.select(complete_html_parsed, "div.a-fixed-left-grid.a-spacing-none")
+        
+        for i, container in enumerate(item_containers):
+            if i >= len(self.items):
+                break
+                
+            price_elem = util.select_one(container, "span.a-size-small.a-color-price")
+            if price_elem:
+                price_text = price_elem.text.strip()
+                if "<nobr>" in price_text:
+                    price_text = price_text.replace("<nobr>", "").replace("</nobr>", "")
+                self.items[i].price = self.to_currency(price_text)
