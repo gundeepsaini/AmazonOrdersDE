@@ -1,4 +1,3 @@
----
 ## Forked from the awesome work by https://github.com/alexdlaird/amazon-orders
 
 Changes added to process Amazon.de orders (with language set to EN)
